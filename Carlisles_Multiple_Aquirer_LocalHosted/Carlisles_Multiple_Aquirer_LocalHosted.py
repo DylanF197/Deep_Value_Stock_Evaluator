@@ -14,6 +14,44 @@ Usage:
 import sys
 import yfinance as yf
 import psycopg2
+import pandas as pd
+
+#----------------------------------------------------------------
+# Getting the list for the ticker iteratpr 
+#----------------------------------------------------------------
+unfiltered = pd.read_csv(
+    'https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt',
+    sep='|'
+)
+
+# Step 1: drop test issues
+df = unfiltered[unfiltered['Test Issue'] == 'N']
+
+# Step 2: drop ETFs using the dedicated column
+df = df[df['ETF'] == 'N']
+
+# Step 3: drop non-common-stock by Security Name keywords
+exclude_keywords = [
+    'Warrant', 'Warrants',
+    'Preferred', 'Pfd',
+    'Unit', 'Units',
+    'Right ', 'Rights',
+    'Note', 'Debenture',
+    'Fund', 'Trust',
+    'ETN',
+    'Depositary'
+]
+
+pattern = '|'.join(exclude_keywords)
+df = df[~df['Security Name'].str.contains(pattern, case=False, na=False)]
+
+# Step 4: optionally KEEP only explicitly labeled common stock
+df = df[df['Security Name'].str.contains('Common Stock', case=False, na=False)]
+
+# Extract clean ticker list
+clean_tickers = df['ACT Symbol'].tolist()
+print(len(clean_tickers))
+print(clean_tickers)
 
 
 def get_value(source, *keys, default=0):
@@ -34,6 +72,16 @@ def get_value(source, *keys, default=0):
 def calculate_acquirers_multiple(ticker_symbol):
     ticker = yf.Ticker(ticker_symbol)
     info = ticker.info
+    #-----------------------------------------------------------------
+    # Close price as a data point
+    #-----------------------------------------------------------------
+    # Current stock price — used for reference alongside the multiple
+    close_price = get_value(info, "currentPrice", "regularMarketPrice")
+    #-----------------------------------------------------------------
+  
+    # Sector / Industry: used for Carlisle's Financial Services & Utilities exclusion
+    sector = info.get("sector", "Unknown")
+    industry = info.get("industry", "Unknown")
 
     # ----------------------------------------------------------------
     # ENTERPRISE VALUE COMPONENTS
@@ -99,6 +147,9 @@ def calculate_acquirers_multiple(ticker_symbol):
 
     return {
         "ticker":            ticker_symbol.upper(),
+        "close_price":       close_price, 
+        "sector":            sector,
+        "industry":          industry,
         "market_cap":        market_cap,
         "total_debt":        total_debt,
         "cash":              cash,
@@ -121,6 +172,9 @@ def print_result(r):
     # Pull any string with an apostrophe out of f-strings to avoid
     # backslash-in-f-string SyntaxError in Python 3.11
     name              = r["ticker"]
+    label_close       = "close_price"
+    label_sector      = "Sector"
+    label_industry   = "Industry"
     label_market_cap  = "+ Market cap"
     label_debt        = "+ Total debt"
     label_preferred   = "+ Preferred stock"
@@ -137,6 +191,9 @@ def print_result(r):
     print(f"\n{divider}")
     print(f"  {name} -- Acquirer's Multiple")
     print(f"{divider}")
+    print(f"  {label_close:<28} ${r['close_price']:.2f}")  
+    print(f"  {label_sector:<28} {r['sector']}")
+    print(f"  {label_industry:<28} {r['industry']}")
     print(f"  {label_market_cap:<28} {fmt(r['market_cap'])}")
     print(f"  {label_debt:<28} {fmt(r['total_debt'])}")
     print(f"  {label_preferred:<28} {fmt(r['preferred_stock'])}")
@@ -205,6 +262,9 @@ def create_table_if_not_exists(cur):
         CREATE TABLE IF NOT EXISTS stocks (
             id                  SERIAL PRIMARY KEY,
             ticker              VARCHAR(10)   NOT NULL,
+            close_price         NUMERIC,
+            sector              VARCHAR(50),
+            industry            VARCHAR(50),
             market_cap          NUMERIC,
             total_debt          NUMERIC,
             cash                NUMERIC,
@@ -241,6 +301,9 @@ def save_result_to_db(r):
         cur.execute("""
             INSERT INTO stocks (
                 ticker,
+                close_price,
+                sector,
+                industry,
                 market_cap,
                 total_debt,
                 cash,
@@ -249,9 +312,12 @@ def save_result_to_db(r):
                 enterprise_value,
                 ebit,
                 acquirers_multiple
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             r["ticker"],
+            r["close_price"],
+            r["sector"],
+            r["industry"],
             r["market_cap"],
             r["total_debt"],
             r["cash"],
@@ -276,6 +342,19 @@ def save_result_to_db(r):
         # Always close the connection, even if an error occurred
         if conn:
             conn.close()
+# ----------------------------------------------------------------
+# TICKER LIST
+# ----------------------------------------------------------------
+
+# Add or remove tickers from this list as needed.
+# The script will loop through every ticker automatically.
+TICKERS = clean_tickers
+"""[
+    "AAPL", "MSFT", "GOOG", "AMZN", "META",
+    "NVDA", "BRK-B", "JPM", "JNJ", "V",
+    "XOM", "UNH", "WMT", "PG", "MA",
+    "HD", "CVX", "MRK", "ABBV", "PEP",
+]"""
 
 
 # ----------------------------------------------------------------
@@ -283,15 +362,31 @@ def save_result_to_db(r):
 # ----------------------------------------------------------------
 
 if __name__ == "__main__":
-    tickers = sys.argv[1:] if len(sys.argv) > 1 else ["AAPL"]
 
-    for symbol in tickers:
+    print(f"\nRunning Acquirer's Multiple screen for {len(TICKERS)} tickers...\n")
+
+    # Track successes and failures for a summary at the end
+    success = []
+    failed  = []
+
+    for symbol in TICKERS:
         try:
             result = calculate_acquirers_multiple(symbol)
             print_result(result)
-
-            # After printing, save the result to the local postgres database
             save_result_to_db(result)
+            success.append(symbol)
+
+            # Small delay between calls to avoid yfinance rate limiting
+            import time
+            time.sleep(1)
 
         except Exception as e:
             print(f"\nError fetching {symbol}: {e}\n")
+            failed.append(symbol)
+
+    # Print a summary when the loop finishes
+    print(f"\n{'='*45}")
+    print(f"  Done. {len(success)} succeeded, {len(failed)} failed.")
+    if failed:
+        print(f"  Failed tickers: {', '.join(failed)}")
+    print(f"{'='*45}\n")
