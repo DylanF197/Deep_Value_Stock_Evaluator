@@ -235,7 +235,7 @@ def get_db_connection():
         host="localhost",
         database="Carlisles_Multiple_Local",
         user="postgres",
-        password="A5hp12020@"  # <-- change this!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! So it wont show in Github
+        password="A5hp12020@"  # <-- change this!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! So it wont show in Github
     )
 
 
