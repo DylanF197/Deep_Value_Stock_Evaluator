@@ -10,14 +10,17 @@ Usage:
   python acquirers_multiple.py AAPL
   python acquirers_multiple.py AAPL MSFT GOOG
 """
- 
+import os
+from dotenv import load_dotenv
 import sys
 import yfinance as yf
 import psycopg2
 import pandas as pd
 
+load_dotenv("hidden_credentials.env")  # Load environment variables from .env file
+
 #----------------------------------------------------------------
-# Getting the list for the ticker iteratpr 
+# Getting the list for the ticker iterator 
 #----------------------------------------------------------------
 unfiltered = pd.read_csv(
     'https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt',
@@ -232,11 +235,11 @@ def get_db_connection():
     Update the password field to match your postgres password.
     """
     return psycopg2.connect(
-        host="localhost",
-        database="Carlisles_Multiple_Local",
-        user="postgres",
-        password="A5hp12020@"  # <-- change this!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! So it wont show in Github
-    )
+    host=os.getenv("DB_HOST"),
+    database=os.getenv("DB_NAME"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD")
+)
 
 
 def create_table_if_not_exists(cur):
@@ -347,14 +350,15 @@ def save_result_to_db(r):
 # ----------------------------------------------------------------
 
 # Add or remove tickers from this list as needed.
-# The script will loop through every ticker automatically.
-TICKERS = clean_tickers
-"""[
+# The script will loop through the manual list of tickers and calculate the Acquirer's Multiple for each one. This is here for testing reasons. 
+
+#TICKERS = clean_tickers
+TICKERS = [
     "AAPL", "MSFT", "GOOG", "AMZN", "META",
     "NVDA", "BRK-B", "JPM", "JNJ", "V",
     "XOM", "UNH", "WMT", "PG", "MA",
     "HD", "CVX", "MRK", "ABBV", "PEP",
-]"""
+]
 
 
 # ----------------------------------------------------------------
