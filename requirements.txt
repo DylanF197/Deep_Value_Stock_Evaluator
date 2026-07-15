@@ -1,0 +1,3 @@
+Python packages needed: os, dotenv, load_dotenv, sys, yfinance, psycopg2, pandas
+    - Note: This code will push the data to a database, you must specify your own postrgres database address and authentication if you seek to replicate this project. If you want to modify to make the data into .csv's then push those
+             as you see fit, that will work too. 
