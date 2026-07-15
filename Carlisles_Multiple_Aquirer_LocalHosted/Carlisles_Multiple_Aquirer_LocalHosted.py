@@ -352,13 +352,13 @@ def save_result_to_db(r):
 # Add or remove tickers from this list as needed.
 # The script will loop through the manual list of tickers and calculate the Acquirer's Multiple for each one. This is here for testing reasons. 
 
-#TICKERS = clean_tickers
-TICKERS = [
+TICKERS = clean_tickers
+'''TICKERS = [
     "AAPL", "MSFT", "GOOG", "AMZN", "META",
     "NVDA", "BRK-B", "JPM", "JNJ", "V",
     "XOM", "UNH", "WMT", "PG", "MA",
     "HD", "CVX", "MRK", "ABBV", "PEP",
-]
+]'''
 
 
 # ----------------------------------------------------------------
