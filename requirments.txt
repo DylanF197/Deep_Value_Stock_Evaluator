@@ -1,9 +1,0 @@
-#Packages
-pandas
-psycopg2
-yfinance
-sys
-load_env
-os
-
-#Note, this project will drop data into my postgres database. You will have to change the database address or port the data to .csv's if you want this to work. 
