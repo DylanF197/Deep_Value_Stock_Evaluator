@@ -8,12 +8,10 @@ This project automates financial analysis by:
 - Producing Power BI visualizations from the clean data.
 
   Technologies:
-  - Python (Libraries: sys, yfinance, pandas, psycopg2) 
+  - Python (Libraries: sys, yfinance, pandas, psycopg2, os, dotenv, load_dotenv) 
   - SQL
   - Postgres Database
  
-  Data Table Structure: id, ticker, market_cap, cash, prefered_stock, minority_interest, enterprise_value, ebit, acquirers_multiple, fetched_at, close_price, sector, industry
-
 Finalized Report Example: 
 
 <img width="1283" height="718" alt="image" src="https://github.com/user-attachments/assets/3f853c72-7055-4477-bd7f-23551feffae5" />
